@@ -27,7 +27,7 @@ export default function GenerationCard({
   async function handleCopy() {
     const ok = await copyToClipboard(
       generation.output,
-      "Généré avec CopyPunch — copypunch.fr"
+      "Généré avec CopyPunch — copypunch.pro"
     );
     if (ok) {
       setCopied(true);

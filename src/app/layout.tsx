@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -13,16 +14,14 @@ export const metadata: Metadata = {
     "Décrivez votre produit, choisissez un format, et obtenez du copy professionnel et persuasif en quelques secondes. Pub Facebook, email marketing, LinkedIn, landing page et plus.",
   openGraph: {
     title: "CopyPunch — Générateur de Copywriting IA",
-    description:
-      "Générez du copy qui convertit. En un clic.",
+    description: "Générez du copy qui convertit. En un clic.",
     type: "website",
-    url: "https://copypunch.fr",
+    url: "https://copypunch.pro",
   },
   twitter: {
     card: "summary_large_image",
     title: "CopyPunch — Générateur de Copywriting IA",
-    description:
-      "Générez du copy qui convertit. En un clic.",
+    description: "Générez du copy qui convertit. En un clic.",
   },
 };
 
@@ -33,7 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${inter.variable} antialiased`}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

@@ -51,9 +51,9 @@ export function getShareUrl(
   platform: "twitter" | "linkedin",
   text: string
 ): string {
-  const baseText = `${text.slice(0, 200)}...\n\nGenere avec CopyPunch — copypunch.fr`;
+  const baseText = `${text.slice(0, 200)}...\n\nGénéré avec CopyPunch — copypunch.pro`;
   if (platform === "twitter") {
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(baseText)}`;
   }
-  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://copypunch.fr")}`;
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://copypunch.pro")}`;
 }

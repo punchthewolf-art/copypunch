@@ -58,7 +58,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   pro: {
     id: "pro",
     name: "Pro",
-    price: 9.99,
+    price: 9,
     generationsPerMonth: -1,
     contentTypesAllowed: -1,
     features: [
@@ -74,7 +74,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   business: {
     id: "business",
     name: "Business",
-    price: 29.99,
+    price: 29,
     generationsPerMonth: -1,
     contentTypesAllowed: -1,
     features: [
@@ -108,7 +108,7 @@ export interface GenerateErrorResponse {
   error: string;
 }
 
-// ─── Database Row Types (for Phase 2) ───
+// ─── Database Row Types ───
 export interface UserRow {
   id: string;
   email: string;
@@ -117,6 +117,8 @@ export interface UserRow {
   referral_code: string;
   referred_by: string | null;
   bonus_generations: number;
+  generations_used_this_month: number;
+  current_period_start: string;
   created_at: string;
 }
 

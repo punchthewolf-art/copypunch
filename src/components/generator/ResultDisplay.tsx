@@ -16,7 +16,7 @@ export default function ResultDisplay({ result }: ResultDisplayProps) {
   async function handleCopy() {
     const ok = await copyToClipboard(
       result,
-      "Généré avec CopyPunch — copypunch.fr"
+      "Généré avec CopyPunch — copypunch.pro"
     );
     if (ok) {
       setCopied(true);

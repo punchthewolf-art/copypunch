@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 const navLinks = [
   { href: "/#features", label: "Fonctionnalités" },
@@ -15,12 +17,15 @@ const navLinks = [
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, profile, isLoading, signOut } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const planLabel = profile?.plan?.toUpperCase() || "GRATUIT";
 
   return (
     <motion.header
@@ -58,12 +63,26 @@ export default function Header() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm" href="/auth/login">
-              Se connecter
-            </Button>
-            <Button variant="primary" size="sm" href="/generateur">
-              Essayer gratuitement
-            </Button>
+            {!isLoading && user ? (
+              <>
+                <Badge variant="default">{planLabel}</Badge>
+                <Button variant="ghost" size="sm" href="/dashboard">
+                  Tableau de bord
+                </Button>
+                <Button variant="ghost" size="sm" onClick={signOut}>
+                  Déconnexion
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" href="/auth/login">
+                  Se connecter
+                </Button>
+                <Button variant="primary" size="sm" href="/generateur">
+                  Essayer gratuitement
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger */}
@@ -114,12 +133,55 @@ export default function Header() {
                 </Link>
               ))}
               <div className="mt-4 flex flex-col gap-2">
-                <Button variant="ghost" size="md" fullWidth href="/auth/login">
-                  Se connecter
-                </Button>
-                <Button variant="primary" size="md" fullWidth href="/generateur">
-                  Essayer gratuitement
-                </Button>
+                {!isLoading && user ? (
+                  <>
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <Badge variant="default">{planLabel}</Badge>
+                      <span className="text-xs text-muted truncate max-w-[180px]">
+                        {profile?.email}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      fullWidth
+                      href="/dashboard"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Tableau de bord
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      fullWidth
+                      onClick={() => {
+                        setMobileOpen(false);
+                        signOut();
+                      }}
+                    >
+                      Déconnexion
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      fullWidth
+                      href="/auth/login"
+                    >
+                      Se connecter
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      fullWidth
+                      href="/generateur"
+                    >
+                      Essayer gratuitement
+                    </Button>
+                  </>
+                )}
               </div>
             </nav>
           </motion.div>

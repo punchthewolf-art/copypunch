@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { PLAN_LIST } from "@/types";
+import type { PlanType } from "@/types";
 import SectionHeading from "@/components/ui/SectionHeading";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 const containerVariants = {
   hidden: {},
@@ -22,6 +26,39 @@ const itemVariants = {
 };
 
 export default function PricingSection() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null);
+
+  async function handleCheckout(planId: "pro" | "business") {
+    if (!user) {
+      router.push(`/auth/register?redirect=/tarifs`);
+      return;
+    }
+
+    setLoadingPlan(planId);
+
+    try {
+      const res = await fetch("/api/stripe/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Stripe checkout error:", data.error);
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
+
   return (
     <section id="pricing" className="py-24 sm:py-32">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -60,10 +97,10 @@ export default function PricingSection() {
                   </h3>
                   <div className="mt-3 flex items-baseline gap-1">
                     <span className="text-4xl font-bold text-foreground">
-                      {plan.price === 0 ? "0" : plan.price.toFixed(2)}
+                      {plan.price === 0 ? "0" : plan.price}
                     </span>
                     <span className="text-muted text-sm">
-                      {plan.price === 0 ? "" : "\u20AC / mois"}
+                      {plan.price === 0 ? "" : "$ / mois"}
                     </span>
                   </div>
                 </div>
@@ -89,14 +126,28 @@ export default function PricingSection() {
                   ))}
                 </ul>
 
-                <Button
-                  variant={plan.popular ? "primary" : "outline"}
-                  fullWidth
-                  size="md"
-                  href={plan.id === "gratuit" ? "/generateur" : "/auth/register"}
-                >
-                  {plan.cta}
-                </Button>
+                {plan.id === "gratuit" ? (
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    size="md"
+                    href={user ? "/generateur" : "/auth/register"}
+                  >
+                    {plan.cta}
+                  </Button>
+                ) : (
+                  <Button
+                    variant={plan.popular ? "primary" : "outline"}
+                    fullWidth
+                    size="md"
+                    isLoading={loadingPlan === plan.id}
+                    onClick={() =>
+                      handleCheckout(plan.id as "pro" | "business")
+                    }
+                  >
+                    {plan.cta}
+                  </Button>
+                )}
               </Card>
             </motion.div>
           ))}

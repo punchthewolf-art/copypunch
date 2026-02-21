@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import GenerationCard from "@/components/dashboard/GenerationCard";
 import EmptyState from "@/components/dashboard/EmptyState";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import { useGenerations } from "@/hooks/useGenerations";
 import { useUser } from "@/hooks/useUser";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,8 +16,10 @@ type FilterMode = "all" | "favorites";
 
 export default function DashboardPage() {
   const user = useUser();
-  const { generations, toggleFavorite, deleteGeneration } = useGenerations();
+  const { generations, isLoading, toggleFavorite, deleteGeneration } =
+    useGenerations();
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const filtered =
     filter === "favorites"
@@ -25,6 +30,21 @@ export default function DashboardPage() {
     0,
     user.generationsLimit + user.bonusGenerations - user.generationsUsed
   );
+
+  async function handleBillingPortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Portal error:", error);
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -39,13 +59,60 @@ export default function DashboardPage() {
             transition={{ duration: 0.5 }}
             className="mb-8"
           >
-            <h1 className="text-3xl font-bold text-foreground sm:text-4xl">
-              Tableau de bord
-            </h1>
-            <p className="mt-2 text-muted">
-              Retrouvez toutes vos générations et favoris.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-bold text-foreground sm:text-4xl">
+                    Tableau de bord
+                  </h1>
+                  <Badge variant="default">
+                    {user.plan.toUpperCase()}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-muted">
+                  Retrouvez toutes vos générations et favoris.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {user.plan !== "gratuit" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    isLoading={portalLoading}
+                    onClick={handleBillingPortal}
+                  >
+                    Gérer l&apos;abonnement
+                  </Button>
+                )}
+              </div>
+            </div>
           </motion.div>
+
+          {/* Upsell Banner for Free Plan */}
+          {user.plan === "gratuit" && !user.isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.05 }}
+              className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Passez à Pro pour des générations illimitées
+                </p>
+                <p className="text-xs text-muted mt-0.5">
+                  Plus de limites, plus de types de contenu, sans
+                  filigrane.
+                </p>
+              </div>
+              <Link
+                href="/tarifs"
+                className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors"
+              >
+                Voir les tarifs
+              </Link>
+            </motion.div>
+          )}
 
           {/* Stats Bar */}
           <motion.div
@@ -67,8 +134,12 @@ export default function DashboardPage() {
               <p className="text-xs text-muted">Favoris</p>
             </div>
             <div className="rounded-xl border border-card-border bg-card-bg p-4 text-center">
-              <p className={`text-2xl font-bold ${remaining <= 1 ? "text-error" : "text-foreground"}`}>
-                {user.generationsLimit === -1 ? "∞" : remaining}
+              <p
+                className={`text-2xl font-bold ${
+                  remaining <= 1 ? "text-error" : "text-foreground"
+                }`}
+              >
+                {user.generationsLimit === -1 ? "\u221E" : remaining}
               </p>
               <p className="text-xs text-muted">Restantes</p>
             </div>
@@ -83,7 +154,7 @@ export default function DashboardPage() {
           >
             <button
               onClick={() => setFilter("all")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
                 filter === "all"
                   ? "border border-accent bg-accent-light text-accent"
                   : "border border-card-border bg-card-bg text-muted hover:border-muted hover:text-foreground"
@@ -93,18 +164,44 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setFilter("favorites")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
                 filter === "favorites"
                   ? "border border-accent bg-accent-light text-accent"
                   : "border border-card-border bg-card-bg text-muted hover:border-muted hover:text-foreground"
               }`}
             >
-              Favoris ({generations.filter((g) => g.is_favorite).length})
+              Favoris (
+              {generations.filter((g) => g.is_favorite).length})
             </button>
           </motion.div>
 
           {/* Generation List */}
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="flex items-center gap-2 text-sm text-muted">
+                <svg
+                  className="animate-spin h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                Chargement...
+              </div>
+            </div>
+          ) : filtered.length === 0 ? (
             <EmptyState
               title={
                 filter === "favorites"
