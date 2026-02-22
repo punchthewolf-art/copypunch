@@ -1,39 +1,135 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 interface AuthFormProps {
   mode: "login" | "register";
 }
 
 export default function AuthForm({ mode }: AuthFormProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/generateur";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">(
+    "success"
+  );
+  const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  const supabase = createClient();
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMessage("Authentification bientôt disponible. Restez connecté !");
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      if (mode === "register") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${redirect}`,
+          },
+        });
+
+        if (error) {
+          setMessageType("error");
+          setMessage(getErrorMessage(error.message));
+        } else {
+          setMessageType("success");
+          setMessage(
+            "Compte cr\u00e9\u00e9 ! V\u00e9rifiez votre email pour confirmer votre inscription."
+          );
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          setMessageType("error");
+          setMessage(getErrorMessage(error.message));
+        } else {
+          router.push(redirect);
+          router.refresh();
+        }
+      }
+    } catch {
+      setMessageType("error");
+      setMessage("Une erreur inattendue est survenue. R\u00e9essayez.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleOAuth() {
+    setIsLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${redirect}`,
+      },
+    });
+
+    if (error) {
+      setMessageType("error");
+      setMessage("Erreur lors de la connexion avec Google.");
+      setIsLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setMessageType("error");
+      setMessage("Entrez votre email pour r\u00e9initialiser le mot de passe.");
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/generateur`,
+    });
+
+    if (error) {
+      setMessageType("error");
+      setMessage(getErrorMessage(error.message));
+    } else {
+      setMessageType("success");
+      setMessage(
+        "Email de r\u00e9initialisation envoy\u00e9. V\u00e9rifiez votre bo\u00eete de r\u00e9ception."
+      );
+    }
+    setIsLoading(false);
   }
 
   return (
     <div className="w-full max-w-md">
       <div className="rounded-xl border border-card-border bg-card-bg p-8">
         <h1 className="mb-2 text-2xl font-bold">
-          {mode === "login" ? "Se connecter" : "Créer un compte"}
+          {mode === "login" ? "Se connecter" : "Cr\u00e9er un compte"}
         </h1>
         <p className="mb-6 text-sm text-muted">
           {mode === "login"
-            ? "Connectez-vous pour accéder au générateur"
-            : "Inscrivez-vous pour commencer à générer du copy"}
+            ? "Connectez-vous pour acc\u00e9der au g\u00e9n\u00e9rateur"
+            : "Inscrivez-vous pour commencer \u00e0 g\u00e9n\u00e9rer du copy"}
         </p>
 
-        {/* Google OAuth placeholder */}
+        {/* Google OAuth */}
         <button
           type="button"
-          disabled
-          className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-muted opacity-60"
+          onClick={handleGoogleOAuth}
+          disabled={isLoading}
+          className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-foreground hover:bg-card-bg transition-colors disabled:opacity-50 cursor-pointer"
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path
@@ -54,9 +150,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
             />
           </svg>
           Continuer avec Google
-          <span className="ml-auto rounded bg-card-border px-1.5 py-0.5 text-xs">
-            Bientôt
-          </span>
         </button>
 
         <div className="mb-4 flex items-center gap-3">
@@ -67,7 +160,10 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm text-muted">
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm text-muted"
+            >
               Email
             </label>
             <input
@@ -77,7 +173,8 @@ export default function AuthForm({ mode }: AuthFormProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="vous@exemple.fr"
               required
-              className="w-full rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted/50 focus:border-accent focus:outline-none"
+              disabled={isLoading}
+              className="w-full rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted/50 focus:border-accent focus:outline-none disabled:opacity-50"
             />
           </div>
           <div>
@@ -92,24 +189,70 @@ export default function AuthForm({ mode }: AuthFormProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 6 caractères"
+              placeholder="Min. 6 caract\u00e8res"
               required
               minLength={6}
-              className="w-full rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted/50 focus:border-accent focus:outline-none"
+              disabled={isLoading}
+              className="w-full rounded-lg border border-card-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted/50 focus:border-accent focus:outline-none disabled:opacity-50"
             />
           </div>
 
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={isLoading}
+              className="text-xs text-accent hover:underline cursor-pointer disabled:opacity-50"
+            >
+              Mot de passe oubli\u00e9 ?
+            </button>
+          )}
+
           {message && (
-            <p className="rounded-lg bg-accent-light px-3 py-2 text-sm text-accent">
+            <p
+              className={`rounded-lg px-3 py-2 text-sm ${
+                messageType === "success"
+                  ? "bg-accent-light text-accent"
+                  : "bg-red-500/10 text-red-400"
+              }`}
+            >
               {message}
             </p>
           )}
 
           <button
             type="submit"
-            className="glow-button w-full rounded-lg bg-accent py-2.5 text-sm font-semibold text-white hover:bg-accent-hover"
+            disabled={isLoading}
+            className="glow-button w-full rounded-lg bg-accent py-2.5 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50 cursor-pointer"
           >
-            {mode === "login" ? "Se connecter" : "Créer mon compte"}
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg
+                  className="animate-spin h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                Chargement...
+              </span>
+            ) : mode === "login" ? (
+              "Se connecter"
+            ) : (
+              "Cr\u00e9er mon compte"
+            )}
           </button>
         </form>
 
@@ -117,14 +260,20 @@ export default function AuthForm({ mode }: AuthFormProps) {
           {mode === "login" ? (
             <>
               Pas encore de compte ?{" "}
-              <Link href="/auth/register" className="text-accent hover:underline">
+              <Link
+                href={`/auth/register${redirect !== "/generateur" ? `?redirect=${redirect}` : ""}`}
+                className="text-accent hover:underline"
+              >
                 S&apos;inscrire
               </Link>
             </>
           ) : (
             <>
-              Déjà un compte ?{" "}
-              <Link href="/auth/login" className="text-accent hover:underline">
+              D\u00e9j\u00e0 un compte ?{" "}
+              <Link
+                href={`/auth/login${redirect !== "/generateur" ? `?redirect=${redirect}` : ""}`}
+                className="text-accent hover:underline"
+              >
                 Se connecter
               </Link>
             </>
@@ -133,4 +282,23 @@ export default function AuthForm({ mode }: AuthFormProps) {
       </div>
     </div>
   );
+}
+
+function getErrorMessage(message: string): string {
+  const map: Record<string, string> = {
+    "Invalid login credentials":
+      "Email ou mot de passe incorrect.",
+    "Email not confirmed":
+      "Veuillez confirmer votre email avant de vous connecter.",
+    "User already registered":
+      "Un compte existe d\u00e9j\u00e0 avec cet email.",
+    "Password should be at least 6 characters":
+      "Le mot de passe doit contenir au moins 6 caract\u00e8res.",
+    "Email rate limit exceeded":
+      "Trop de tentatives. R\u00e9essayez dans quelques minutes.",
+    "Signups not allowed for this instance":
+      "Les inscriptions sont temporairement d\u00e9sactiv\u00e9es.",
+  };
+
+  return map[message] || `Erreur : ${message}`;
 }
